@@ -1,4 +1,4 @@
-# ISt-687-Intro-to-Data-Science
+# IST-687-Intro-to-Data-Science
 
 Compilation of projects completed for the Introduction to Data Science course for the MS in Applied Data Science at Syracuse University
 
