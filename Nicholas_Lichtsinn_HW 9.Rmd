@@ -1,0 +1,122 @@
+---
+title: "HW 9"
+author: "Nicholas Lichtsinn"
+date: "6/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## INITIAL DATA CLEANING
+
+aq <- airquality
+
+# view the summary
+summary(aq)
+
+# handle the NAs
+avg_solar <- tapply(aq$Solar.R, aq$Month, mean, na.rm = TRUE)
+avg_solar_df <- data.frame(Month = names(avg_solar), Avg_Solar.R = avg_solar)
+
+avg_solar_df
+
+# merge back to the aq data to replace NAs
+aq <- merge(aq, avg_solar_df, by = "Month")
+
+# replace the NAs using ifelse
+aq$Solar.R <- ifelse(is.na(aq$Solar.R), aq$Avg_Solar.R, aq$Solar.R)
+
+# drop the Avg_Solar.R column
+aq <- aq[, -7]
+
+## Since Ozone is the variable of interest and we want to make prediction for Ozone
+## separate the observations where Ozone was NAs
+
+missing_ozone_df <- aq[is.na(aq$Ozone), ]
+with_ozone_df <- aq[!is.na(aq$Ozone), ]
+
+## CREAT A TRAIN and TEST data sets using the with_ozone_df
+set.seed(723)
+
+nrows <- nrow(with_ozone_df) # number of rows in the data
+sample_size <- round(0.8*nrows) # take 80%
+
+training_index <- sample(1:nrows, size = sample_size, replace = FALSE) # random index
+
+aq_train <- with_ozone_df[training_index, ] # train data set
+aq_test <- with_ozone_df[-training_index, ] # test data set
+
+PredictOzone <- function(a, aq_test){
+  predictedOzone <- predict(a, aq_test)
+  results <- table(predictedOzone, aq_test$Ozone)
+  print(results)
+  percentcorrect <- (results[1,1]+results[2,2])/(results[1,1]+results[1,2]+results[2,1]+results[2,2])*100
+  round(percentcorrect)
+  return(percentcorrect)
+}
+
+modelKSVM <- ksvm(Ozone ~ ., data = aq_test)
+PredictOzone(modelKSVM, aq_train)
+
+root_square <- function(error){
+  sqrt(mean(error^2))
+}
+
+modelKSVM1 <- predict(modelKSVM, aq_test)
+modelKSVM.error <- (aq_test$Ozone - modelKSVM1)
+root_square(modelKSVM.error)
+
+dfError <- data.frame(aq_test$Wind,aq_test$Temp, modelKSVM.error)
+colnames(dfError) <- c("Wind", "Temp", "Error")
+
+##install.packages("ggplot2")
+##library(ggplot2)
+
+plotdfError <- ggplot(dfError, aes(x=aq_test$Temp, y=aq_test$Wind)) + geom_point(aes(size=modelKSVM.error), color = "red") + ggtitle("KSVM Model")
+plotdfError <- plotdfError + xlab("Temp") + ylab("Wind")
+plotdfError
+
+## train a model with the e1071 package
+##install.packages("e1071")
+##library(e1071)
+
+linear_svm <- svm(Ozone ~ Solar.R + Wind + Temp + Month + Day, data = aq_train,
+                  type = "eps-regression",
+                  kernel = "linear")
+
+linear_svm
+
+pred <- predict(linear_svm, newdata = aq_test)
+
+
+
+## root mean square error
+sqrt(mean((aq_test$Ozone - pred)^2))
+
+##install.packages("Metrics")
+##library(Metrics)
+
+rmse(aq_test$Ozone, pred)
+
+
+## train a model with the kernlab package
+##library(kernlab)
+
+linear_ksvm <- ksvm(Ozone ~ Solar.R + Wind + Temp + Month + Day, data = aq_train,
+                    type = "eps-svr",
+                    kernel = "vanilladot")
+plotSVM <- ggplot(aq_test, aes(x=aq_test$Temp,y=aq_test$Wind)) + geom_point(aes(size=linear_ksvm), color = "blue") + ggtitle("Linear KSVM Model")
+plotSVM
+
+linear_ksvm
+
+pred2 <- predict(linear_ksvm, newdata = aq_test)
+
+
+
+
+
+```

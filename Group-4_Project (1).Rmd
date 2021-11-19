@@ -1,0 +1,538 @@
+---
+title: "Group-4_Project"
+author: "Jamie Bigley"
+date: "6/21/2021"
+output: html_document
+ 
+
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE, warning = FALSE, message = FALSE)
+```
+
+
+# Group 4 Project
+
+Europe's Energy Production/Consumption Review
+
+```{r}
+#Library that are used for this report
+library(sqldf)
+library(ggplot2)
+library(reshape2)
+library(tidyverse)
+library(dplyr)
+library(gridExtra)
+library(gsubfn)
+library(proto)
+```
+
+
+```{r}
+#Load data sets for project
+#Energy information from BP
+bp_information <- read.csv("https://www.bp.com/content/dam/bp/business-sites/en/global/corporate/xlsx/energy-economics/statistical-review/bp-stats-review-2020-consolidated-dataset-panel-format.csv")
+
+#World population information
+World_Pop <- read.csv(file = "World_Pop.csv", header = TRUE, sep = ",")
+
+#Countries Area information
+areas <- read.csv(file = "countries_area.csv")
+
+#GDP information
+df_gdp <- read.csv(file = "API_GDP_dataframe.csv")
+```
+
+
+```{r}
+#Prepare World Population 'World_Pop' data.frame in preparation to merge with other data.frames
+
+#Remove all the 'X' from the column titles for the years
+names(World_Pop) <- sub("^X", "", names(World_Pop))
+
+#Rename the column of 'Country_Name' to 'Country'
+names(World_Pop)[1] <- "Country"
+
+#Need to convert each year column to a year column
+World_Pop <- melt(World_Pop, id.vars = c("Country"))
+World_Pop <- World_Pop[-c(1:792),]
+
+#Need to rename the two columns year and population
+names(World_Pop)[2] <- "Year"
+names(World_Pop)[3] <- "Population"
+```
+
+```{r}
+#Prepare Countries Area File in preparation to merge with other dataframes
+
+#Need to clean up file by removing 3rd row
+areas <- subset(areas, select = -c(3))
+
+#Need to rename columns to 'Country' and 'Area(kms)'
+names(areas)[1] <- paste("Country")
+names(areas)[2] <- paste("Area(km2)")
+
+#Need to remove the first row
+areas <- areas[-c(1),]
+
+#Need to change area(km2) to numeric vector
+areas$`Area(km2)` <- as.numeric(as.character(areas$`Area(km2)`))
+```
+
+```{r}
+#Prepare GDP file in preparation to merge with other dataframes
+
+#Need to remove unneeded columns
+df_gdp <- df_gdp[-c(2:4)]
+
+#Need to rename columns
+names(df_gdp)[1] <- paste("Country")
+names(df_gdp) <- gsub("X", "", names(df_gdp))
+
+#Convert each column year into a column of years and remove the "NA". 
+df_gdp <- melt(df_gdp, id.vars = c("Country"))
+df_gdp <- na.omit(df_gdp)
+
+#Rename columns for year and currency
+names(df_gdp)[2] <- paste("Year")
+names(df_gdp)[3] <- paste("GDP.US..")
+
+#Need to change the year to a numeric vector
+df_gdp$Year <- as.numeric(as.character(df_gdp$Year))
+```
+
+```{r}
+#Merging all the data.frame into one data set.
+
+#Merge Area and GDP into a project data.frame
+Project <- merge(df_gdp, areas, by = "Country")
+
+#Now add World Population to the 'Project' dataframe
+Project <- merge(Project, World_Pop, by.x = c("Country", "Year"))
+
+#Now adding BP information to the Project dataframe
+Project <- merge(Project, bp_information, by.x = c("Country", "Year"))
+
+#Reducing the Project dataframe to just countries with a 'SubRegion' = Europe
+Project <- Project[c(which(Project$SubRegion == "Europe")),]
+
+#Some column are NA for all of Europe.  Those columns will be removed.
+Project <- subset(Project, select = -c(biodiesel_cons_kbd, biodiesel_cons_kboed, biodiesel_cons_ktoe, 
+                                       biodiesel_prod_kbd, biodiesel_prod_kboed, biodiesel_cons_pj, ethanol_cons_pj,
+                                       biodiesel_prod_ktoe, biodiesel_prod_pj, cobalt_kt, ethanol_cons_kbd, 
+                                       ethanol_cons_kboed, ethanol_cons_ktoe, ethanol_prod_kbd, ethanol_prod_kboed),)
+
+#Remaining 'NA' are equal to zero.  Replacing all NA with 0
+Project[is.na(Project)] = 0
+
+#Correcting the units of measurement for 'biofuels'
+Project$biofuels_prod_pj <- Project$biofuels_prod_pj * 0.001
+names(Project)[24] <- paste("biofuels_prod_ej")
+Project$biofuels_cons_pj <- Project$biofuels_cons_pj * 0.001
+names(Project)[20] <- paste("biofuels_cons_ej")
+
+#Write to complete data set to in case files change
+write.csv(Project,"Project.csv")
+```
+
+
+```{r}
+#Because of the number of countries in the Europe "SubRegion" the data set will be reduced to the countries with the highest GDP
+Project_2019 <- subset(Project, Year == 2019)
+TopGDP <- top_n(Project_2019, 10, GDP.US..)
+TopGDP <- TopGDP$Country
+
+Project <- Project[ Project$Country %in% TopGDP, ]
+```
+
+# Data Clean Up
+Data set was reduced to Countries with the Highest GDP
+
+Countries   Countries
+---------   ---------
+Belgium     France
+Germany     Italy
+Netherlands Poland
+Spain       Switzerland
+Turkey      United Kingdom
+
+```{r}
+TopGDP
+```
+
+
+```{r}
+#Looking at renewables consumed from each Country.
+#First make a new data frame with just the renewable energy source.
+Total_Renew <- Project[, c("Country", "Year", "GDP.US..", "Population", 
+                           "hydro_ej", "ren_power_ej", 
+                           "renewables_ej","solar_ej", "wind_ej")]
+Total_Renew$Total <- rowSums(Total_Renew[, 5:9])
+
+TotalRenewPlot <- ggplot(Total_Renew, aes(x = Year, y = Total)) + geom_line(aes(color = Country))
+TotalRenewPlot <- TotalRenewPlot + labs(title = "Renewables Energy", y = "Energy EJ") + theme(plot.title = element_text(hjust = 0.5))
+TotalRenewPlot <- TotalRenewPlot + theme(panel.background = element_rect(fill = "light blue", 
+                                                                         color = "light blue", 
+                                                                         size = 0.5, 
+                                                                         linetype = "solid"))
+```
+# Renewable Energy
+```{r}
+plot(TotalRenewPlot)
+```
+
+```{r}
+#Looking at fossil fuels consumed from each Country.
+#First make a new data frame with just the fossil fuels energy source.
+
+Total_Fossil <- Project[ , c("Country", "Year", "GDP.US..", "Population", 
+                           "biofuels_cons_ej", "biogeo_ej", "coalcons_ej",
+                           "gascons_ej", "oilcons_ej", "nuclear_ej")]
+Total_Fossil$Total <- rowSums(Total_Fossil[, 5:10])
+
+TotalFossilPlot <- ggplot(Total_Fossil, aes(x = Year, y = Total)) + geom_line(aes(color = Country))
+TotalFossilPlot <- TotalFossilPlot + labs(title = "Energy Consumed by Fossil Fuels", y = "Energy EJ") + 
+  theme(plot.title = element_text(hjust = 0.5))
+TotalFossilPlot <- TotalFossilPlot + theme(panel.background = element_rect(fill = "light blue", 
+                                                                         color = "light blue", 
+                                                                         size = 0.5, 
+                                                                         linetype = "solid"))
+```
+# Fossil Fuels
+```{r}
+plot(TotalFossilPlot)
+```
+
+```{r}
+#Next we will look at Total Energy Consumed.
+#Combining the renewable and fossil data frames
+TotalEnergy <- Project[ , c("Country", "Year", "GDP.US..", "Population", 
+                           "biofuels_cons_ej", "biogeo_ej", "coalcons_ej",
+                           "gascons_ej", "oilcons_ej", "hydro_ej", "nuclear_ej", 
+                           "ren_power_ej", "renewables_ej", "solar_ej", "wind_ej")]
+TotalEnergy$Total <- rowSums(TotalEnergy[ , 5:15])
+TotalEnergyPlot <- ggplot(TotalEnergy, aes(x = Year, y = Total)) + geom_line(aes(color = Country))
+TotalEnergyPlot <- TotalEnergyPlot + labs(title = "Total Energy Consumed", y = "Energy EJ") + 
+  theme(plot.title = element_text(hjust = 0.5))
+TotalEnergyPlot <- TotalEnergyPlot + theme(panel.background = element_rect(fill = "light blue", 
+                                                                         color = "light blue", 
+                                                                         size = 0.5, 
+                                                                         linetype = "solid"))
+```
+
+# Total Energy Consumed
+```{r}
+plot(TotalEnergyPlot)
+#Energy consumption looks pretty stable across each country.  Try comparing this information to population and land area.
+```
+
+```{r}
+#First we look at energy per population
+#First we need to change 'Population' to a numeric 
+TotalEnergy$Population <- as.numeric(TotalEnergy$Population)
+
+EnergyPerPopulationPlot <- ggplot(TotalEnergy, aes(x = Year, y = (Total/Population))) + 
+  geom_line(aes(color = Country)) + labs(title = "Energy Consumed by Population", y = "Energy EJ") +
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+```
+
+# Energy Consumed by Population
+```{r}
+plot(EnergyPerPopulationPlot)
+```
+
+```{r}
+#lets but this in comparison with a population plot
+PopulationPlot <- ggplot(TotalEnergy, aes(x = Year, y = Population)) + 
+  geom_line(aes(color = Country)) + labs(title = "Population by Country", y = "Population") +
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+```
+
+```{r}
+#Production per population.
+#Create a data.frame for energy production source.  
+EnergyProductionTotal <- Project[ , c("Country", "Year", "Population", "biofuels_prod_ej", "biogeo_ej", "coalprod_ej", "gasprod_ej", "hydro_ej", "nuclear_ej", "ren_power_ej", "renewables_ej", "solar_ej", "wind_ej")]
+
+#Create a column to sum all the energy production sources
+EnergyProductionTotal$Total_Prod <- rowSums(EnergyProductionTotal[, 4:13])
+EnergyProductionTotal$Population <- as.numeric(EnergyProductionTotal$Population)
+ 
+
+ProductionPopulationPlot <- ggplot(EnergyProductionTotal, aes(x = Year, y = (Total_Prod/Population))) +
+  geom_line(aes(color = Country)) + labs(title = "Energy Producted by Population", y = "Energy EJ") +
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+
+```
+# Energy Produced by the Country Population
+```{r}
+plot(ProductionPopulationPlot)
+```
+
+# Population by Country
+```{r}
+plot(PopulationPlot)
+```
+
+```{r}
+#Next lets look at the ratio of fossil fuels to renewable consumed.  
+
+EnergyConRatio <- Total_Renew[, c("Country", "Year", "Population", "Total")]
+names(EnergyConRatio)[4] <- paste("Renew_Total(Ej)")
+EnergyConRatio$Total_Fossil <- Total_Fossil$Total
+names(EnergyConRatio)[5] <- paste("Total_Fossil (Ej)")
+EnergyConRatio$Renew_Fossil <- EnergyConRatio$`Renew_Total(Ej)`/EnergyConRatio$`Total_Fossil (Ej)`
+
+#Plot the ratio for each country each year
+EnergyConRatioPlot <- ggplot(EnergyConRatio, aes(x = Year, y = Renew_Fossil)) + geom_line(aes(color = Country)) +
+  labs(title = "Renew/Fossil Consumed", y = "Ratio") +
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+```
+
+# Rate of Renewable to Fossil Fuels Used
+```{r}
+plot(EnergyConRatioPlot)
+```
+
+
+```{r}
+#Look at the different Energy Production based off the about of area in a country
+Prod_2019 <- subset(Project, Year == 2019)
+ProductionArea <- Prod_2019[, c("Country", "Area(km2)", "biofuels_prod_ej", "biogeo_ej",
+                                   "coalprod_ej", "gasprod_ej", "hydro_ej", 
+                                   "nuclear_ej", "ren_power_ej", "renewables_ej", "solar_ej", "wind_ej")]
+
+ProductionArea$Total <- rowSums(ProductionArea[ , 3:12])
+ProdAreaPer <- Prod_2019[, c("Country", "Area(km2)")]
+ProdAreaPer$biofuelsPercent <- (ProductionArea$biofuels_prod_ej / ProductionArea$Total)*100
+ProdAreaPer$biogeo_ejPercent <- (ProductionArea$biogeo_ej / ProductionArea$Total)*100
+ProdAreaPer$coalprod_ejPercent <- (ProductionArea$coalprod_ej / ProductionArea$Total)*100
+ProdAreaPer$gasprod_ejPercent <- (ProductionArea$gasprod_ej / ProductionArea$Total)*100
+ProdAreaPer$hydro_ejPercent <- (ProductionArea$hydro_ej / ProductionArea$Total)*100
+ProdAreaPer$nuclear_ejPercent <- (ProductionArea$nuclear_ej / ProductionArea$Total)*100
+ProdAreaPer$ren_power_ejPercent <- (ProductionArea$ren_power_ej / ProductionArea$Total)*100
+ProdAreaPer$renewables_ejPercent <- (ProductionArea$renewables_ej / ProductionArea$Total)*100
+ProdAreaPer$solar_ejPercent <- (ProductionArea$solar_ej / ProductionArea$Total)*100
+ProdAreaPer$wind_ejPercent <- (ProductionArea$wind_ej / ProductionArea$Total)*100
+names(ProdAreaPer)[2] <- paste("Areakm2")
+ProdAreaPer <- melt(ProdAreaPer, id.vars = c("Areakm2", "Country"))
+ProdAreaPer$Areakm2 <- as.character(ProdAreaPer$Areakm2)
+
+AreaPlot <- ggplot(ProdAreaPer, aes(x = Country, y = value, fill = variable)) + geom_bar(position = 'stack', stat = 'identity', color = "black") + labs(title = "Energy Production by Country", y = "Percentage %", col = "Country") + theme(axis.text.x = element_text(angle = 90)) +
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+
+```
+# Ratio of Energy Sources from Area of Country
+```{r}
+plot(AreaPlot)
+```
+
+```{r}
+#Look at the different Energy Production based off the about of area in a country
+Prod_2019 <- subset(Project, Year == 2019)
+ProductionArea <- Prod_2019[, c("Country", "Area(km2)", "biofuels_prod_ej", "biogeo_ej",
+                                   "coalprod_ej", "gasprod_ej", "hydro_ej", 
+                                   "nuclear_ej", "ren_power_ej", "renewables_ej", "solar_ej", "wind_ej")]
+
+ProductionArea$Total <- rowSums(ProductionArea[ , 3:12])
+ProductionArea$Renew_Total <- rowSums(ProductionArea[ , 7:12])
+ProductionArea$Fossil_Total <- rowSums(ProductionArea[ , 3:6])
+ProductionArea$RenewPercent <- (ProductionArea$Renew_Total/ProductionArea$Total) * 100
+ProductionArea$FossilPercent <- (ProductionArea$Fossil_Total/ProductionArea$Total) * 100
+ProdAreaPer <- ProductionArea[, c("Country", "Area(km2)", "RenewPercent", "FossilPercent")]
+names(ProdAreaPer)[2] <- paste("Areakm2")
+ProdAreaPer <- melt(ProdAreaPer, id.vars = c("Areakm2", "Country"))
+ProdAreaPer$Areakm2 <- as.character(ProdAreaPer$Areakm2)
+
+AreaPlot <- ggplot(ProdAreaPer, aes(x = Areakm2, y = value, fill = variable)) + geom_bar(position = 'stack', stat = 'identity', color = "black") + labs(title = "Energy Production by Area", y = "Percentage %") + labs(col = "Energy") +  
+  theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue",
+                                                                                        color = "light blue",
+                                                                                        size = 0.5,
+                                                                                        linetype = "solid"))
+plot(AreaPlot)
+
+```
+
+
+```{r}
+#Looking at at Europe as a hole
+#Combine all 10 countries into Europe
+EuropeEnergyProd <- Project[, c("Year", "Population", "biofuels_prod_ej", "biogeo_ej", 
+"coalprod_ej", "gasprod_ej","nuclear_ej", "hydro_ej", "ren_power_ej", "renewables_ej", 
+"solar_ej", "wind_ej")]
+EuropeEnergyProd$Population <- as.numeric(EuropeEnergyProd$Population)
+EuropeEnergyProd$Total_Prod <- rowSums(EuropeEnergyProd[, 3:12])
+EuropeEnergyProd$Renew_Total <- rowSums(EuropeEnergyProd[, 8:12])
+EuropeEnergyProd$Fossil_Total <- rowSums(EuropeEnergyProd[, 3:7])
+
+EuropeEnergyProd$RenewPercent <- (EuropeEnergyProd$Renew_Total/EuropeEnergyProd$Total_Prod) * 100
+EuropeEnergyProd$FossilPercent <- (EuropeEnergyProd$Fossil_Total/EuropeEnergyProd$Total_Prod) * 100
+
+#Plot total Production in Europe
+EuropeEnergyProdTotal <- EuropeEnergyProd[, c("Year", "Total_Prod")]
+EuropeEnergyProdTotal <- aggregate(EuropeEnergyProdTotal, by = list(Category = EuropeEnergyProdTotal$Year), FUN = sum)
+EuropeEnergyProdTotal <- subset(EuropeEnergyProdTotal, select = -c(Year))
+names(EuropeEnergyProdTotal)[1] <- paste("Year")
+
+#Repeat this for the Renew and Fossil Totals
+EuropeRenew <- EuropeEnergyProd[, c("Year", "Renew_Total")]
+EuropeRenew <- aggregate(EuropeRenew, by = list(Category = EuropeRenew$Year), FUN = sum)
+EuropeRenew <- subset(EuropeRenew, select = -c(Year))
+names(EuropeRenew)[1] <- paste("Year")
+
+EuropeFossil <- EuropeEnergyProd[, c("Year", "Fossil_Total")]
+EuropeFossil <- aggregate(EuropeFossil, by = list(Category = EuropeFossil$Year), FUN = sum)
+EuropeFossil <- subset(EuropeFossil, select = -c(Year))
+names(EuropeFossil)[1] <- paste("Year")
+
+EuropeEnergyProdTotal$Renew_Total <- EuropeRenew$Renew_Total
+EuropeEnergyProdTotal$Fossil_Total <- EuropeFossil$Fossil_Total
+#EuropeEnergyProdTotal <- melt(EuropeEnergyProdTotal, id.vars = "Year")
+
+
+EuropeEnergyProdTotalPlot <- ggplot(EuropeEnergyProdTotal, aes(x = Year)) + geom_line(aes(y = Total_Prod, color = "Total Prod")) + 
+  geom_line(aes(y = Renew_Total, color = "Renew")) + 
+  geom_line(aes(y = Fossil_Total, color = "Fossils")) + 
+  scale_color_manual(values = c("Red", "Green", "Black")) + 
+  labs(title = "Total Europe Produced", y = "Energy EJ", col = "Energy") + theme(plot.title = element_text(hjust = 0.5)) + 
+  theme(panel.background = element_rect(fill = "light blue", color = "light blue", size = 0.5, linetype = "solid"))
+
+
+```
+# Europe Energy Production
+```{r}
+
+plot(EuropeEnergyProdTotalPlot)
+```
+
+```{r}
+#We will be unable to predict when renewable energy production will over take Fossil fuel energy production 
+#energy because the graph above shows this has already taken place.  Therefore, we use the information from 1985 - 2010 
+#to train a prediction model and see how accurate it is.
+
+EurEnergylm <- Project[, c("Year", "Population", "biofuels_prod_ej", "biogeo_ej", 
+"coalprod_ej", "gasprod_ej","nuclear_ej", "hydro_ej", "ren_power_ej", "renewables_ej", 
+"solar_ej", "wind_ej")]
+EurEnergylm$Population <- as.numeric(EurEnergylm$Population)
+EurEnergylm <- aggregate(EurEnergylm, by = list(Category = EurEnergylm$Year), FUN = sum)
+EurEnergylm <- subset(EurEnergylm, select = -c(Year),)
+names(EurEnergylm)[1] <- paste("Year")
+
+#Adding Total or overall energy produced, then total by renewable and fossil fuels
+EurEnergylm$Total_Prod <- rowSums(EurEnergylm[, 3:12])
+EurEnergylm$Renew_Total <- rowSums(EurEnergylm[,8:12])
+EurEnergylm$Fossil_Total <- rowSums(EurEnergylm[, 3:7])
+
+#Adding columns of percentages of renewable and fossil fuels produced. 
+EurEnergylm$RenewPercent <- (EurEnergylm$Renew_Total/EurEnergylm$Total_Prod) * 100
+EurEnergylm$FossilPercent <- (EurEnergylm$Fossil_Total/EurEnergylm$Total_Prod) * 100
+
+
+Energylm <- EurEnergylm[21:55, ]
+
+Energylmodel <- lm(Energylm$RenewPercent ~ Energylm$biofuels_prod_ej + Energylm$biogeo_ej +
+                 Energylm$coalprod_ej + Energylm$gasprod_ej + Energylm$nuclear_ej + Energylm$hydro_ej + 
+                 Energylm$ren_power_ej + Energylm$renewables_ej + Energylm$solar_ej + Energylm$wind_ej)
+summary(Energylmodel)
+```
+
+```{r}
+
+Energylmodel <- lm(Energylm$RenewPercent ~ Energylm$biogeo_ej +Energylm$nuclear_ej + 
+                     Energylm$hydro_ej + Energylm$renewables_ej)
+summary(Energylmodel)
+```
+
+```{r}
+#Create Training dataframe
+EurEnergylm <- EurEnergylm[21:55, ] #Removing data before 1985.
+set.seed(23)
+nrows <- nrow(EurEnergylm)
+sample_size <- round(0.8*nrows)
+
+#Create random set of numbers
+training_index <- sample(1:nrows, size = sample_size, replace = FALSE)
+
+#Create training dataframe of 80%
+EnergyTrain <- EurEnergylm[training_index, ]
+
+#Create test dataframe of 20%
+EnergyTest <- EurEnergylm[-training_index, ]
+
+library(e1071)
+
+liner_svm <- svm(RenewPercent ~ biofuels_prod_ej + biogeo_ej + coalprod_ej + gasprod_ej + nuclear_ej + hydro_ej + 
+                 ren_power_ej + renewables_ej + solar_ej + wind_ej, data = EnergyTrain, type = "eps-regression", kernel = "linear")
+
+liner_svm
+
+pred_Renew <- predict(liner_svm, newdata = EnergyTest)
+SVMError <- (EurEnergylm - pred_Renew)
+
+sqrt(mean((EnergyTest$RenewPercent - pred_Renew)^2))
+
+library(Metrics)
+rmse(EnergyTest$RenewPercent, pred_Renew)
+
+SVMPlot <- ggplot(data = EurEnergylm, aes(x = Year, y = Total_Prod)) + geom_point(aes(size = RenewPercent)) + 
+  labs(title = "SVM Model") + theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill = "light blue", color = "light blue", size = 0.5, linetype = "solid"))
+plot(SVMPlot)
+```
+
+
+```{r}
+#Create a variable for "RenewGreat50"
+# If 0 Renew % < 50% or 1 then Renew % > 50%
+EurEnergylm$RenewGreat50 <- as.factor(ifelse(EurEnergylm$RenewPercent > 50, 1, 0))
+
+#Rerun training and test data frames.
+nrows <- nrow(EurEnergylm)
+sample_size <- round(0.8*nrows)
+training_index <- sample(1:nrows, size = sample_size, replace = FALSE)
+EnergyTrain <- EurEnergylm[training_index, ]
+EnergyTest <- EurEnergylm[-training_index, ]
+
+library(kernlab)
+modelksvm <- ksvm(RenewGreat50 ~., data = EnergyTrain, kernel = "rbfdot", cost = 50, scale = FALSE)
+modelksvmPred <- predict(modelksvm, EurEnergylm, type = "vote")
+comptable <- data.frame(EurEnergylm[,18], modelksvmPred[2,])
+table(comptable)
+```
+
+```{r}
+#Calcutaling the error
+modelksvmError <- ((32 - 3)/ 36)
+modelksvmError
+```
+
+```{r}
+#Creating the model 
+modelksvmPlot <- data.frame(EurEnergylm$Year, EurEnergylm$Total_Prod, modelksvmError)
+colnames(modelksvmPlot) <- c("Year", "Total_Prod", "Error")
+ModelksvmPlot <- ggplot(modelksvmPlot, aes(x = Year, y = Total_Prod)) + geom_point(aes(size = modelksvmPred[2,], color = "Production"))
+ModelksvmPlot <- ModelksvmPlot + labs(title = "KSVM Model", y = "Energy Production") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme(panel.background = element_rect(fill = "light blue",color = "light blue", size = 0.5, linetype = "solid")) +
+  scale_color_manual(values = c("Orange")) + labs(col = "Energy Produced")
+
+plot(ModelksvmPlot)
+```
+
+

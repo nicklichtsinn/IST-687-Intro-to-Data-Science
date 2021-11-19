@@ -1,0 +1,89 @@
+---
+title: "Nick Lichtsinn Homework 5"
+author: "Nick Lichtsinn"
+date: "5/16/2021"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+
+install.packages("RJSONIO")
+install.packages("RCurl")
+install.packages("sqldf")
+install.packages("jsonlite")
+
+library(RJSONIO)
+library(RCurl)
+library(sqldf)
+library(jsonlite)
+```
+
+```{r}
+# Step 1: Load the Data
+install.packages('curl')
+results2 <- jsonlite::fromJSON("https://opendata.maryland.gov/api/views/pdvh-tf2u/rows.json?accessType=DOWNLOAD")
+results2_data <- results2$data
+dfCollision <- data.frame(results2_data)
+```
+
+# Step 2: Clean the Data
+```{r}
+str(dfCollision)
+
+dfCollision<- dfCollision[,-1:-8]
+
+namesOfColumns<- colnames(dfCollision)
+namesOfColumns <- c("CASE_NUMBER","BARRACK","ACC_DATE","ACC_TIME","ACC_TIME_CODE","DAY_OF_WEEK","ROAD","INTERSECT_ROAD","DIST_FROM_INTERSECT","DIST_DIRECTION","CITY_NAME","COUNTY_CODE","COUNTY_NAME","VEHICLE_COUNT","PROP_DEST","INJURY","COLLISION_WITH_1","COLLISION_WITH_2")
+colnames(dfCollision)<- namesOfColumns
+colnames(dfCollision)
+
+```
+
+# Step 3: Understand the Data Using SQL
+```{r}
+#Getting rid of null/NA
+
+noNull<- dfCollision
+noNA<-na.omit(noNull)
+any(is.na(noNA))
+dfCollision<- noNA
+
+# Returns the string without leading or trailing whitespace
+
+dfCollision$DAY_OF_WEEK <- gsub(" ", "", dfCollision$DAY_OF_WEEK)
+View(dfCollision)
+
+## How many accidents happen on Sunday?
+SunAcc<- nrow(sqldf("select * from dfCollision where DAY_OF_WEEK='SUNDAY'"))
+SunAcc
+## How	many	accidents	had	injuries (might	need	to	remove	NA's	from	the	data)
+Injuries<- sqldf("select count(*) from dfCollision where INJURY='YES'")
+Injuries
+## List	the	injuries	by	day
+InjuriesByDay<- sqldf("select Count(*), DAY_OF_WEEK from dfCollision Group By DAY_OF_WEEK")
+InjuriesByDay
+
+```
+
+# Step 4: Understand the Data Using Tapply
+```{r}
+
+## How many accidents happen on Sunday?
+tapply(dfCollision$DAY_OF_WEEK, dfCollision$DAY_OF_WEEK=='SUNDAY', length)
+
+## How	many	accidents	had	injuries (might	need	to	remove	NA's	from	the	data)
+tapply(dfCollision$INJURY, dfCollision$INJURY=='YES', length)
+
+## List	the	injuries	by	day
+tapply(dfCollision$DAY_OF_WEEK, dfCollision$DAY_OF_WEEK, length)
+
+
+```

@@ -1,0 +1,50 @@
+---
+title: "Week 4 Lab"
+author: "Nick Lichtsinn"
+date: "5/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Step 1. 
+
+```{r}
+
+set.seed(2) #Generates a sequence of random numbers, getting the same result with the same seed each time.
+sampleSize <- 30 #Sets sample size to 30.
+studentPop <- rnorm(20000,mean=20,sd=3) #Creates a normal distribution with 20,000 random numbers with a mean of 20 and a standard deviation of 3.
+undergrads <- sample(studentPop,size=sampleSize,replace=TRUE) #Pulls a sample of 30 undergrad students from the normal distribution we just created.
+grads <- rnorm(sampleSize,mean=25,sd=3) #Pulls a sample of 30 graduate students with a mean of 25 and standard deviation of 3.
+if (runif(1)>0.5) { testSample <- grads } else { testSample <- undergrads } #"flipping a coin" to determine if it pulls a sample of undergrads or grads.
+mean(testSample) #The mean of the pulled sample.
+
+```
+
+## Step 2.
+```{r}
+sampleMeans <- replicate(100, mean(sample(studentPop,sampleSize,replace=TRUE), simplify=TRUE))
+#Replicating 100 means from sample studentPop.
+
+```
+
+## Step 3.
+### Comparing mean(testSample) to that list of sample means to see where they fall.
+```{r}
+sampleMeansQuantile <-  quantile(sampleMeans, probs = c(0.025,0.975))
+sampleMeansQuantile
+
+```
+
+## Step 4.
+### Creating a print() statement to show if mean(testSample) is outside of the 2.5% or 97.5% quantiles.
+```{r}
+if((sampleMeansQuantile[1] < testSample) && (testSample < sampleMeansQuantile[2]))
+
+print("Sample mean is not extreme") else print("Sample mean is extreme")
+
+
+
+```

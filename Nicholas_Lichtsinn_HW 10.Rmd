@@ -1,0 +1,169 @@
+---
+title: "Nicholas_Lichtsinn_HW 10"
+author: "Nicholas Lichtsinn"
+date: "6/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## install.packages("tm")
+## install.packages("wordcloud")
+## install.packages("SnowballC")
+## install.packages("ggplot2")
+## library(tm)
+## library(wordcloud)
+## library(SnowballC)
+## library(ggplot2)
+
+#------------------------------------------------------------------
+# Step 1 - Read in the positive and negative word files
+# 1) create 2 vectors, one for positive words, one for negative words
+# 2) clean the files
+## install.packages("readr")
+## library(readr)
+positive_words <- read_csv("\\\\hd.ad.syr.edu\\03\\67fa8f\\Documents\\positivewords.txt",
+                           col_names = "word", skip = 34)
+
+negative_words <- read_csv("\\\\hd.ad.syr.edu\\03\\67fa8f\\Documents\\negativewords.txt",
+                           col_names = "word", skip = 34)
+
+
+
+AFINN <- read_csv("\\\\hd.ad.syr.edu\\03\\67fa8f\\Documents\\AFINN.txt")
+#------------------------------------------------------------------
+# Step 2 - MLK Speech
+# 3) read in the file
+MLK <- scan("\\\\hd.ad.syr.edu\\03\\67fa8f\\Documents\\MLKspeech.txt",
+            character(0), sep = "\n")
+
+## TOKENIZATION
+
+# Since text is unstructured, we need a way to structure it. Tokenization is the process of cutting documents into words
+#
+# + Text from each document is cut into words and mixed into a __Bag of words__.
+# + Each review is considered a __document__
+# + Each unique word is known as a __term__
+# + A __token__ is an occurrence of a term
+
+# Create a Word Corpus
+MLK_corpus <- Corpus(VectorSource(MLK))
+
+# view the corpus
+print(MLK_corpus)
+
+# Create a Documnet Term Matrix
+MLK_dtm <- DocumentTermMatrix(MLK_corpus,
+                              control = list(tolower = TRUE,
+                                             removeNumbers = TRUE,
+                                             stopwords = TRUE,
+                                             removePunctuation = TRUE,
+                                             stripWhitespace = TRUE#,
+                                             #stemming = TRUE,
+                                             #stemCompletion = TRUE))
+                              ))
+
+# check to see how many terms are in the documnet
+MLK_dtm
+
+# view the document term matrix
+inspect(MLK_dtm)
+
+# find frequent term
+findFreqTerms(MLK_dtm, 5)
+
+# convert the document term matrix to a matrix
+m <- as.matrix(MLK_dtm)
+
+# check the term and frequency using colSums()
+colSums(m)
+
+df <- data.frame(freq = colSums(m))   # convert this to a data frame
+df$term <- rownames(df)               # convert rownames to column
+rownames(df) <- NULL                  # remove rownames
+df <- df[,c("term", "freq")]
+
+## For the lab - calculate percent of match with the positive and negative words
+matched_pos <- match(df$term, positive_words$word, nomatch = 0)  # determine match, nomatch
+length(matched_pos[which(matched_pos != 0)]) / sum(df$freq)
+
+matched_neg <- match(df$term, negative_words$word, nomatch = 0)  # determine match, nomatch
+length(matched_neg[which(matched_neg != 0)]) / sum(df$freq)      
+
+
+## FOR THE HW - it's better to use the merge() function to merge the df & AFINN to calculate the score
+
+### Alternatively, use the tidy() function from the broom package to convert
+# the Document Term Matrix into a tidy data frame
+## install.packages("tidyverse")
+## install.packages("broom")
+## install.packages("tidytext")
+## install.packages("textdata")
+## library(tidyverse)
+## library(broom)
+## library(tidytext)
+## library(textdata)
+
+AFINN <- get_sentiments(lexicon = "afinn")
+
+MLK_df <- broom::tidy(MLK_dtm)
+
+# how many words in the MLK df are in the positive words df
+inner_join(MLK_df, positive_words, by = c("term"="word"))
+
+# how many words in the MLK df are in the negative words df
+inner_join(MLK_df, negative_words, by = c("term"="word"))
+
+# there are multiple ways to break the document into 4 quadrant
+# either read the data in one quadrant at a time or
+# simply filter the MLK_df by document number
+
+# ----------------------------------------------
+# make wordcloud
+MLK_df_aggr <- MLK_df %>%
+count(term) %>%
+top_n(100, n)
+
+
+# more colorful wordclound
+set.seed(15)
+wordcloud(words = MLK_df_aggr$term,
+          freq = MLK_df_aggr$n,
+          max.words = 30,
+          rot.per = 0.25,colors = brewer.pal(8, "Dark2"))
+
+
+
+### TO DO for HW#10
+# sentiment analysis with AFINN
+MLK_dfAfinn <- inner_join(MLK_df, AFINN, by = c("term"="word")) ## joining the mlk-df with the afinn word list
+sum(MLK_dfAfinn$value) ## adding the values to get the overall score for the MLK speech using the AFINN word list
+
+# score for each of the 4 quadrants
+MLK1 <- MLK_dfAfinn[1:26,]
+MLK2 <- MLK_dfAfinn[27:52,]
+MLK3 <- MLK_dfAfinn[53:79,]
+MLK4 <- MLK_dfAfinn[80:105,]
+
+## Creating a function to find the score of each quadrant
+QScore <- function(vector){
+    result <- sum(vector$value)
+  print(result)
+  
+}
+QScore(vector = MLK1)
+QScore(vector = MLK2)
+QScore(vector = MLK3)
+QScore(vector = MLK4)
+
+# make the plot with ggplot
+plotdf <- data.frame(Quadrant=c("1", "2", "3", "4"), Score=c(QScore(vector = MLK1), QScore(vector = MLK2), QScore(vector = MLK3), QScore(vector = MLK4))) ## creating a dataframe with the Quadrants and their scores
+plotdf
+qScorePlot <- ggplot(plotdf, aes(x=Quadrant,y=Score)) + geom_bar(stat="identity") ## creating a bar chart for each quadrants score
+qScorePlot
+
+
+```

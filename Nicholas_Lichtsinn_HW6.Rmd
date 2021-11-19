@@ -1,0 +1,99 @@
+---
+title: "Nicholas_Lichstinn_HW6"
+author: "Nick Lichtsinn"
+date: "5/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+```
+
+# Step 1: Load the data
+```{r}
+newAQ <- airquality
+```
+#---------------------------------------------------------------------
+# Step 2: Clean the data
+```{r}
+# handle missing values
+# newAQ$Ozone <- ifelse(is.na(newAQ$Ozone), mean(newAQ$Ozone, na.rm = TRUE), newAQ$Ozone)
+# newAQ$Solar.R <- ifelse(is.na(newAQ$Solar.R), mean(newAQ$Solar.R, na.rm = TRUE), newAQ$Solar.R)
+
+# handle NAs for Ozone
+mthly_avg_ozone <- tapply(newAQ$Ozone, newAQ$Month, mean, na.rm=TRUE)
+ozone_df <- data.frame(Month = names(mthly_avg_ozone), Avg_Ozone = mthly_avg_ozone)
+
+newAQ <- merge(newAQ, ozone_df, by.x = "Month", by.y = "Month")
+newAQ$Ozone <- ifelse(is.na(newAQ$Ozone), newAQ$Avg_Ozone, newAQ$Ozone)
+```
+# handle NAs for Solar.R
+```{r}
+mthly_avg_Solar.R <- tapply(newAQ$Solar.R, newAQ$Month, mean, na.rm=TRUE)
+Solar.R_df <- data.frame(Month = names(mthly_avg_Solar.R), Avg_Solar.R = mthly_avg_Solar.R)
+
+newAQ <- merge(newAQ, Solar.R_df, by.x = "Month", by.y = "Month")
+newAQ$Solar.R <- ifelse(is.na(newAQ$Solar.R), newAQ$Avg_Solar.R, newAQ$Solar.R)
+
+```
+
+# Step 3: Understand the data distribution
+```{r}
+## Creating histograms for each of the variables
+OHist <- ggplot(newAQ, aes(x=Month)) + geom_histogram(binwidth=1)
+SHist <- ggplot(newAQ, aes(x=Month)) + geom_histogram(binwidth=1)
+WHist <- ggplot(newAQ, aes(x=Month)) + geom_histogram(binwidth=1)
+THist <- ggplot(newAQ, aes(x=Month)) + geom_histogram(binwidth=1)
+
+## Creating a Boxplot for Ozone
+OBox <- ggplot(newAQ, aes(group=1, x=Month, y=Ozone)) + geom_boxplot()
+## Creating a Boxplot for wind values (rounding to get a good number of buckets)
+WBox <- ggplot(newAQ, aes(group=1, x=Month, y=round(Wind, digits=0))) + geom_boxplot()
+
+```
+# Step 3: Explore how the data changes over time
+# Combine the Month, Day variables with 1973 to create a Date variable
+```{r}
+newAQ$Date <- as.Date(paste(newAQ$Month, newAQ$Day, 1973, sep = "-"), format = "%m-%d-%Y")
+
+## Create line charts for ozone, temp, wind and solar.R
+o <- ggplot(newAQ, aes(x=Date, y=Ozone, group=1)) + geom_line(color="black")
+t <- ggplot(newAQ, aes(x=Date, y=Temp, group=1)) + geom_line(color="black")
+w <- ggplot(newAQ, aes(x=Date, y=Wind, group=1)) + geom_line(color="black")
+s <- ggplot(newAQ, aes(x=Date, y=Solar.R, group=1)) + geom_line(color="black")
+All4 <- ggplot(newAQ, aes(x=Date)) + geom_line(aes(y=Ozone), color = "Green") + geom_line(aes(y=Temp), color = "Yellow") + geom_line(aes(y=Wind), color = "Blue") + geom_line(aes(y=Solar.R), color = "Red")
+# Changing the label on the y-axis
+All42 <- All4 + ylab("Counts")
+```
+
+# Step 4: Look at all the data via a Heatmap
+```{r}
+Heat4 <- ggplot(newAQ, aes(x=Date, fill=factor(Date)))
+Heat4 <-Heat4 + geom_tile(aes(y=Ozone, color='Ozone'))
+Heat4 <-Heat4 + geom_tile(aes(y=Temp, color='Temp')) 
+Heat4 <- Heat4 + geom_tile(aes(y=Wind, color='Wind')) 
+Heat4 <- Heat4 + geom_tile(aes(y=Solar.R, color='Solar.R')) 
+Heat4 <- Heat4 + scale_color_manual("", values = c("Ozone"="Red", "Temp"="Green","Wind"="blue", "Solar.R"="Orange"))
+Heat4<- Heat4+ ylab('Values of Variable')
+Heat4 
+
+```
+
+#Step 5: Look at all the data via a scatter chart
+```{r}
+Scatter4 <- ggplot(newAQ, aes(x=Wind, y=Temp)) + geom_point()
+Scatter5 <- Scatter4 + geom_point(aes(size=factor(Ozone), colour=factor(Solar.R)))
+
+
+
+
+```
+
+# Step 6: Final Analysis
+## I see some patterns within the data Ozone spikes in June, July and September, Solar Radiation is going down over all throughout the year and Temp and Wind are staying reletively even over the year.
+
+## The most usefull visualization for me was the line graph with all 4 variables represented, I could get the best view of the variables and how they changed over time.

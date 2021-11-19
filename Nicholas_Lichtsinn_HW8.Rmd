@@ -1,0 +1,50 @@
+---
+title: "HW 8"
+author: "Nicholas Lichtsinn"
+date: "6/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("readxl")
+library("readxl")
+A <- read_excel("\\\\hd.ad.syr.edu\\03\\67fa8f\\Documents\\Downloads\\mlr01.xls") ## reading in the xcel file
+str(A) ## getting the structure of the data
+summary(A) ## summary of the data
+df <- data.frame(A) ## creating a dataframe from A
+colnames(df) ## getting the column names and changing column names
+names(df)[names(df) == "X1"] <- "Fawn"
+names(df)[names(df) == "X2"] <- "Adults"
+names(df)[names(df) == "X3"] <- "Precipitation"
+names(df)[names(df) == "X4"] <- "Winter"
+df
+
+## Creating bivariate plots of number of baby fawns versus adult antelope population
+install.packages(ggplot2)
+library(ggplot2)
+g1 <- ggplot(df, aes(x=Adults, y=Fawn)) + geom_point(color = "blue", size = 4) #fawns vs adults
+g2 <- ggplot(df, aes(x=Precipitation, y=Fawn)) + geom_point(color = "red", size = 4) # fawns vs precipitation
+g3 <- ggplot(df, aes(x=Winter, y=Fawn)) + geom_point(color = "green", size = 4) #fawns vs winter
+g1 <- g1 + ggtitle("Fawn Number vs Adult Population") + xlab("Number of Fawn") + ylab("Adult Population")
+g2 <- g2 + ggtitle("Fawn Number vs Precipitation Levels") + xlab("Number of Fawn") + ylab("Precipitation Level")
+g3 <- g3 + ggtitle("Fawn Number vs Winter Rating") + xlab("Number of Fawn") + ylab("Winter Rating")
+
+# Create regression with fawns and winter levels
+r1.lm <- lm(formula = Fawn~Winter, data = df)
+summary(r1.lm)
+# Create regression with fawns and winter and precipitation levels
+r2.lm <- lm(formula = Fawn~Winter + Precipitation, data = df)
+summary(r2.lm)
+# Create regression with Fawns and Winter, Precipitation, and Adult Population
+r3.lm <- lm(formula = Fawn~Winter + Precipitation + Adults, data = df)
+summary(r3.lm)
+
+# The third model works the best with an Adjusted R-squared of 95.5%. Adults are the best predictor and the most statistically significant. If I wanted to make parsimonious model I would just use Fawn number and Adult Population as this has an Adjusted R-squared of 86.2%.
+
+r4.lm <- lm(formula = Fawn~Precipitation, data = df)
+summary(r4.lm)
+```

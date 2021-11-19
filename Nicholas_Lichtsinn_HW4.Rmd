@@ -1,0 +1,117 @@
+---
+title: "Homework 4"
+author: "Nick Lichtsinn"
+date: "5/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#install.packages("moments")
+library("moments")
+```
+# Step 1 - Write a summarize function to understand the distribution of a vector
+```{r}
+# 1. the printVecInfo() function take a vector as input
+# 2. the printVecInfo() fucntion print out the the mean, median, min & max
+# standard deviation, quantiles, and skewness
+printVecInfo <- function(inputVector){
+  mean_string <- paste("mean:", mean(inputVector))
+  median_string <- paste("median: ", median(inputVector))
+  min_string <- paste("min: ", min(inputVector))
+  max_string <- paste("max: ", max(inputVector))
+  std_string <- paste("Standard Deviation: ", sd(inputVector))
+  quant_string <- paste("Quantile at 0.05: ", quantile(inputVector, probs = c(0.05)))
+  quant_string95 <- paste("Quantile at 0.95: ", quantile(inputVector, probs = c(0.95)))
+  skew_string <- paste("Skewness: ", skewness(inputVector))
+  print(mean_string)
+  print(median_string)
+  print(min_string)
+  print(max_string)
+  print(std_string)
+  print(quant_string)
+  print(quant_string95)
+  print(skew_string)
+
+ 
+}
+```
+# 3. test the printVecInfo() function
+```{r}
+v <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 50)
+printVecInfo(v)
+
+```
+# ---------------------------------------------------------
+# Step 2 - Creating sample in a jar
+
+# create a marbles variable and assign a value of 50
+```{r}
+marbles <- 50
+Red <- 1
+Blue <- 0
+# generate a red_marbles and a blue_marbles vector
+# DON'T DO red_marbles <- c("red", "red", "red",....,"red"). Use some built in function instead
+red_marbles <- replicate(50,Red) # create a vector of 50 "red"
+blue_marbles <- replicate(50,Blue)# create a vector of 50 "blue"
+
+# 4. combined the 2 vectors in a jar variable with 50 red and 50 blue marbles
+jar <- c(red_marbles,blue_marbles) # combine the 2 vectors
+
+# 5. confirm that the jar has 50 red_marbles
+length(jar[jar==Red])
+
+# 6. sample 10 marbles from the jar. how many are red? what was the percentage?
+
+sample10 <- sample(jar, 10, replace = TRUE) # draw a sample of 10
+sample10
+length(sample10[sample10==Red])
+percent <- length(sample10[sample10==Red])/length(sample10)
+percent
+
+# create a function that takes an input vector to draw samples from
+# an input rep_num to use in the replicate() function
+# and an input sample_size to use in the sample() function
+getRedMarblesDistr <- function(inputVector, rep_num, sample_size ){
+   replicate((rep_num), sample((inputVector), sample_size, replace=TRUE), simplify=TRUE)
+}
+
+# 7. sampling 20 times, sample size = 10
+getRedMarblesDistr(jar, 20, 10)
+hist(getRedMarblesDistr(jar, 20, 10))
+printVecInfo(getRedMarblesDistr(jar, 20, 10))
+# 8. sampling 20 times, sample size = 100
+getRedMarblesDistr(jar, 20, 100)
+hist(getRedMarblesDistr(jar, 20, 100))
+printVecInfo(getRedMarblesDistr(jar, 20, 100))
+# 9. sampling 100 times, sample size = 100
+getRedMarblesDistr(jar, 100, 100)
+hist(getRedMarblesDistr(jar, 100, 100))
+printVecInfo(getRedMarblesDistr(jar, 100, 100))
+```
+#----------------------------------------------------
+# Step 3 - Explore the airquality dataset
+
+# 10. Store airquality in a temp variable
+```{r}
+air_quality <- airquality
+
+# run a str() and summary() for a quick glance of the data
+str(air_quality)
+summary(air_quality)
+
+# 11. Clean the dataset
+# removing all NAs
+cleanAirQuality <- na.omit(air_quality)
+
+# 12. Call printVecInfo() on Ozone, Wind, and Temp then create histogram
+printVecInfo(cleanAirQuality$Ozone)
+hist(cleanAirQuality$Ozone)
+printVecInfo(cleanAirQuality$Wind)
+hist(cleanAirQuality$Wind)
+printVecInfo(cleanAirQuality$Temp)
+hist(cleanAirQuality$Temp)
+
+```

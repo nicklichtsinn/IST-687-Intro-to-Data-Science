@@ -1,0 +1,68 @@
+---
+title: "Week 2 Homework"
+author: "Nick Lichtsinn"
+date: "4/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+data(mtcars)
+my_mtcars <- mtcars
+```
+
+## Step 1: What is the hp
+### 1) What is the highest hp
+```{r}
+max(my_mtcars$hp)
+```
+### 2) Which car has the highest hp?
+```{r}
+which.max(my_mtcars$hp)
+my_mtcars[31,]
+```
+
+## Step 2: Explore mpg
+### 3) What is the highest mpg?
+```{r}
+max(my_mtcars$mpg)
+```
+
+### 4) Which car has the highest mpg?
+```{r}
+which.max(my_mtcars$mpg)
+my_mtcars[20,]
+```
+
+### 5) Create a sorted dataframe, based on mpg (highest to lowest)
+```{r}
+mtcarsMPG <- my_mtcars[ order(-my_mtcars$mpg),]
+mtcarsMPG
+```
+
+##Step 3: Which car has the "best" combination of mpg and hp?
+```{r}
+mean(my_mtcars$mpg)
+mean(my_mtcars$hp)
+factor <- mean(my_mtcars$hp)/mean(my_mtcars$mpg)
+my_mtcars$mpg_combined <- my_mtcars$mpg*factor*2 + my_mtcars$hp
+which.max(my_mtcars$mpg_combined)
+my_mtcars[20,]
+```
+
+### 6) What logic did you use?
+#### In my mind mpg is twice as important as hp so I used the combined number of mpg*2 plus hp.
+
+### 7) Which car?
+#### The Toyota Corolla has the highest combined mpg and hp with this logic.
+
+## Step 4: Which car has "best" car combination of mpg and hp, where mpg and hp must be given equal weight?
+```{r}
+factor <- mean(my_mtcars$hp)/mean(my_mtcars$mpg)
+my_mtcars$mpg_combined_equal <- my_mtcars$mpg*factor + my_mtcars$hp
+which.max(my_mtcars$mpg_combined_equal)
+my_mtcars[31,]
+```
+#### The Maserati Bora has the "best" combination of mpg and hp when they are given equal weight.

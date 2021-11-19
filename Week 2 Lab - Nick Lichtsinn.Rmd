@@ -1,0 +1,57 @@
+---
+title: "Week 2 Lab"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Task 1:
+```{r}
+data (mtcars)
+my_mtcars <- mtcars
+
+```
+
+### Create a new variable for this datafram that represents the engine displacement per cylinder in cubic inches for each vehicle.
+```{r}
+my_mtcars$EngineDisplacement <- my_mtcars$disp/my_mtcars$cyl
+```
+
+### Summarize your new variable using the summary() function.
+```{r}
+summary(my_mtcars$EngineDisplacement)
+```
+
+## Task 2:
+### 1. Create three vectors of integers as described above using the c() command to store data reported by group members, with these variable names: Pets, Order, and Siblings.
+```{r}
+Pets <- c(5,1,3,2,1)
+Order <- c(3,2,2,1,1)
+Siblings <- c(2,1,1,1,3)
+```
+
+### 2. Also create a vector of user ID's for the friends and family members.
+```{r}
+User_ID <- c("Emily Lorenzen","Nick Lichtsinn","Bomin Powers","Jamie Bigley","Aaron Chadwick")
+```
+
+### 3. Bind those four vectors together into a data frame called myFriends.
+```{r}
+myFriends <- data.frame(Pets,Order,Siblings,User_ID)
+```
+
+### 4. Use the appropriate R command to report the structure of your data frame as wel as a summary of the data.
+```{r}
+str(myFriends)
+summary(myFriends)
+```
+
+### 5. Use the notation explained on page 33 to list all of the values for each of the variables in the myFriends data frame.
+```{r}
+myFriends$Pets
+myFriends$Order
+myFriends$Siblings
+myFriends$User_ID
+```

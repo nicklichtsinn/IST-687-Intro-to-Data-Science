@@ -1,0 +1,63 @@
+---
+title: "Homework 3"
+author: "Nick Lichtsinn"
+date: "5/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Step 1. Create a function (named readStates) to read a CSV file into R
+```{r}
+readStates <- read.csv("http://www2.census.gov/programs-surveys/popest/tables/2010-2011/state/totals/nst-est2011-01.csv")
+head(readStates)
+```
+
+## Step 2. Clean the dataframe
+```{r}
+population <- data.frame(readStates)
+newPopulation <- population[-c(1,2,3,4,5,6,7,8,60,61,62,63,64,65,66), -c(6,7,8,9,10)]
+names(newPopulation) <- c("stateName", "Jul2010", "Jul2011", "base2010", "base2011")
+colnames(newPopulation) <- names(newPopulation)
+
+newPopulation$Jul2010 <- as.numeric((gsub(",", "",newPopulation$Jul2010)))
+newPopulation$Jul2011 <- as.numeric((gsub(",", "",newPopulation$Jul2011)))
+newPopulation$base2010 <- as.numeric((gsub(",", "",newPopulation$base2010)))
+newPopulation$base2011 <- as.numeric((gsub(",", "",newPopulation$base2011)))
+summary(newPopulation)
+```
+
+## Step 3. Store and Explore the dataset
+```{r}
+dfStates <- data.frame(newPopulation)
+names(dfStates) <- c("stateName", "base2010", "base2011", "Jul2010", "Jul2011")
+colnames(dfStates) <- names(dfStates)
+mean(dfStates$Jul2011)
+```
+### I had mixed up the column names so I had to rename them in the dataframe, after doing so came up with the right answer of 6,109,645
+
+## Step 4. Find the state with the Highest Population
+```{r}
+max(dfStates$Jul2011)
+which.max(dfStates$Jul2011)
+dfStates[5,]
+dfStates[order(dfStates$Jul2011, decreasing=FALSE),]
+
+```
+
+
+### Step 5. Explore the distribution of the states
+```{r}
+
+percentage <- function(vec,num)
+{
+  low <- sum((vec<num)/length(vec))
+  return(low)
+}
+
+percentage(dfStates$Jul2011,mean(dfStates$Jul2011))
+
+
+```
